@@ -40,7 +40,7 @@ jobs:
           set -e
           if [ -n "${{ secrets.CHIPSTRAP_KS_BASE64 }}" ]; then
             echo "Using provided release keystore from secrets"
-           echo "${{ secrets.CHIPSTRAP_KS_BASE64 }}" | tr -d '\n' | base64 -d > app/release.keystore
+          echo "${{ secrets.CHIPSTRAP_KS_BASE64 }}" | base64 -d > app/release.keystore
           else
             echo "Generating ephemeral self-signed release keystore"
             keytool -genkeypair -v \
