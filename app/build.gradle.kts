@@ -13,10 +13,25 @@ android {
         applicationId = "com.chipstrap.rbx"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
         vectorDrawables { useSupportLibrary = true }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    // Release signing config: if a keystore file is present at app/release.keystore
+    // (created by the CI workflow or supplied locally), sign with it; otherwise fall
+    // back to the debug signing config so local `./gradlew assembleRelease` still works.
+    signingConfigs {
+        create("release") {
+            val ksFile = rootProject.file("app/release.keystore")
+            if (ksFile.exists()) {
+                storeFile = ksFile
+                storePassword = System.getenv("KS_PASS") ?: "chipstrap-default-keystore-password"
+                keyAlias = "chipstrap"
+                keyPassword = System.getenv("KS_KEY_PASS") ?: "chipstrap-default-key-password"
+            }
+        }
     }
 
     buildTypes {
@@ -24,7 +39,15 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("debug") // self-signed for now
+            // Use the release signing config if its keystore exists, otherwise fall back to debug
+            // so a plain `./gradlew assembleRelease` on a developer machine still produces an
+            // installable APK (self-signed with the debug key).
+            val ksFile = rootProject.file("app/release.keystore")
+            signingConfig = if (ksFile.exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
         debug {
             isMinifyEnabled = false

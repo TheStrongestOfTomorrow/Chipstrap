@@ -6,7 +6,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chipstrap.rbx.data.SettingsStore
 import com.chipstrap.rbx.fflags.repository.FFlagRepository
-import com.chipstrap.rbx.fflags.strategies.LocalProfileStrategy
 import com.chipstrap.rbx.fflags.strategies.StrategyResolver
 import com.chipstrap.rbx.roblox.RobloxPackages
 import com.chipstrap.rbx.service.LauncherForegroundService
@@ -35,32 +34,29 @@ class HomeViewModel : ViewModel() {
     private val _isLaunching = MutableStateFlow(false)
     val isLaunching: StateFlow<Boolean> = _isLaunching.asStateFlow()
 
+    private val _strategyLabel = MutableStateFlow("—")
+    val strategyLabel: StateFlow<String> = _strategyLabel.asStateFlow()
+
+    private val _robloxVersion = MutableStateFlow<String?>(null)
+    val robloxVersion: StateFlow<String?> = _robloxVersion.asStateFlow()
+
     fun refresh(context: Context) {
         viewModelScope.launch {
             val pkg = RobloxPackages.resolvePreferred(context)
             _isInstalled.value = RobloxPackages.isInstalled(context, pkg)
-            fflags.load()
+            _robloxVersion.value = RobloxPackages.versionName(context, pkg)
+            runCatching { fflags.load() }
             _fflagsCount.value = fflags.count()
             _activePreset.value = SettingsStore.lastPreset.first()
             _lastLaunch.value = SettingsStore.lastLaunchTs.first()
-        }
-    }
-
-    fun strategySummary(): String {
-        // Synchronous summary for the home card. Returns the user's preferred
-        // strategy label; the resolver runs at launch time for real availability.
-        var label = "—"
-        // Trampoline to avoid blocking UI
-        viewModelScope.launch {
             val id = SettingsStore.injectionStrategy.first()
-            label = when (id) {
+            _strategyLabel.value = when (id) {
                 "shizuku" -> "Shizuku"
                 "root" -> "Root"
                 "virtual" -> "Virtual space"
                 else -> "Local profile"
             }
         }
-        return label
     }
 
     fun launch(context: Context) {
@@ -69,7 +65,9 @@ class HomeViewModel : ViewModel() {
         val intent = Intent(context, LauncherForegroundService::class.java).apply {
             action = LauncherForegroundService.ACTION_LAUNCH
         }
-        androidx.core.content.ContextCompat.startForegroundService(context, intent)
+        runCatching {
+            androidx.core.content.ContextCompat.startForegroundService(context, intent)
+        }
         // Optimistic — the real launch happens in the service. Reset the spinner after a bit.
         viewModelScope.launch {
             kotlinx.coroutines.delay(2500)

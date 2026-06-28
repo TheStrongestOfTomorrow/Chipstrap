@@ -1,74 +1,88 @@
+<div align="center">
+
 # Chipstrap
 
-> **Native, fast, optimized Roblox launcher for Android — forked from the abandoned Chevstrap project.**
+[![GitHub Downloads](https://img.shields.io/github/downloads/TheStrongestOfTomorrow/Chipstrap/total)](https://github.com/TheStrongestOfTomorrow/Chipstrap/releases)
+[![GitHub License](https://img.shields.io/github/license/TheStrongestOfTomorrow/Chipstrap)](LICENSE.txt)
+[![GitHub Tag](https://img.shields.io/github/v/tag/TheStrongestOfTomorrow/Chipstrap)](https://github.com/TheStrongestOfTomorrow/Chipstrap/releases)
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/TheStrongestOfTomorrow/Chipstrap/release.yml)](https://github.com/TheStrongestOfTomorrow/Chipstrap/actions/workflows/release.yml)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.1.0-7F52FF)](https://kotlinlang.org)
+[![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-BOM%202024.12-4285F4)](https://developer.android.com/jetpack/compose)
+[![Min Android](https://img.shields.io/badge/min%20Android-8.0%20(API%2026)-green)](https://github.com/TheStrongestOfTomorrow/Chipstrap)
+[![Target Android](https://img.shields.io/badge/target%20Android-14%20(API%2034)-orange)](https://github.com/TheStrongestOfTomorrow/Chipstrap)
 
-Chipstrap is a Kotlin + Jetpack Compose rewrite of [Chevstrap](https://github.com/FrosSky/Chevstrap),
-which was discontinued after Roblox disabled external FFlag reads on the Android
-client. Chipstrap brings it back to life with a **multi-strategy injection engine**
-that works around Roblox's clamp, plus a battery of pre-tuned optimization
-presets and BloxStrap-inspired server info / activity tracker features.
+</div>
 
-## Why does this exist?
+> [!CAUTION]
+> The only official place to download Chipstrap is this GitHub repository. Any other websites offering downloads or claiming to be us are not controlled by us.
 
-The original Chevstrap README read:
+# Chipstrap
 
-> FFLAGS DISABLED BY ROBLOX ITSELF.
-> DISCONTINUED
-
-Roblox 2.650+ stopped honoring `ClientAppSettings.json` placed outside its own
-private data directory, and verifies a checksum on launch. That broke every
-"just drop a file" launcher on Android.
-
-Chipstrap ships **four injection strategies** and picks the best available one
-at runtime:
-
-| Strategy | Requires | Reliable | Survives Roblox updates |
-|---|---|---|---|
-| **Shizuku** | Shizuku running + binder granted | ✅ | ✅ |
-| **Root** | Rooted device | ✅ | ✅ |
-| **Virtual space** | Parallel Space / DualSpace | ⚠️ | ⚠️ |
-| **Local profile** | Nothing | ❌ (export only) | ✅ |
-
-If no strategy is available, Chipstrap still keeps your FFlag profile locally
-and exposes it via export/import so you can apply it with whatever external
-tool you trust.
+Chipstrap is a Roblox & Roblox VN launcher for Android, written in **100% Kotlin + Jetpack Compose** for native speed. Inspired by [Bloxstrap](https://github.com/bloxstraplabs/bloxstrap) and forked from the abandoned [Chevstrap](https://github.com/FrosSky/Chevstrap) project — Chipstrap restores FFlag management that Roblox disabled in client 2.650+ via a multi-strategy injector.
 
 ## Features
 
 ### FFlag management
-- JSON-backed FFlag store (`Modifications/ClientSettings/ClientAppSettings.json`)
-- One-tap presets: **Ultra FPS**, **Balanced**, **Battery Saver**, **High Quality**,
-  **Low-End Device**, **Competitive** (uncapped FPS)
-- Per-flag add / edit / delete
+- Adjust specific FFlags for testing or performance
+- 6 pre-optimized presets: Ultra FPS, Balanced, Battery Saver, High Quality, Low-End Device, Competitive (uncapped FPS)
 - Import / Export JSON (BloxStrap-compatible)
 - Backups / Restore
-- Preset-aware UI
+- Per-flag add / edit / delete
 
-### Optimization engine (pre-optimized features)
-- ✅ Clear Roblox cache before launch
-- ✅ Kill background apps
-- ✅ Force CPU performance governor (root)
-- ✅ Anti-Doze wakelock during gameplay
-- ✅ GPU tuning (disable animation scale)
-- ✅ BT audio buffer boost
-- ✅ Aggressive memory trim
-- ✅ Low-latency private DNS (1.1.1.1)
-- ✅ Frame-rate cap & rendering backend toggles via FFlags
+### Multi-strategy injection (workaround for Roblox disabling FFlags)
+Chipstrap works around Roblox 2.650+ no longer honoring `ClientAppSettings.json` outside its private data dir via four injection strategies, picked automatically at runtime:
+
+| Strategy | Requires | Reliable |
+|---|---|---|
+| **Shizuku** | Shizuku running + binder granted | ✅ |
+| **Root** | Rooted device | ✅ |
+| **Virtual space** | Parallel Space / DualSpace | ⚠️ |
+| **Local profile** | Nothing | ❌ (export only) |
+
+### Optimizations
+- Clear Roblox cache before launch
+- Kill background apps
+- Force CPU performance governor (root)
+- Anti-Doze wakelock during gameplay
+- GPU tuning (disable animation scale)
+- Bluetooth audio buffer boost
+- Aggressive memory trim
+- Low-latency private DNS (1.1.1.1)
 
 ### BloxStrap-inspired
-- 🌍 **Server info**: live JobID, place, universe, location (via ipinfo.io), ping
-- 🕒 **Activity tracker**: session duration, recent experiences
-- 🎮 **Multi-version**: Global, VNG (Vietnam), or custom Roblox package
+- See where your server is currently located (via [ipinfo.io](https://ipinfo.io/) API)
+- Real-time server info (JobID / place / universe / ping)
+- Activity tracker (session duration + recent experiences)
+- Able to rejoin your last server after leaving it
 
-### Native Android
-- 100% **Kotlin** + **Jetpack Compose** + **Material 3**
-- Built on **Coroutines** + **DataStore** + **Navigation Compose** + **OkHttp**
-- Single foreground service owns the launch pipeline (survives backgrounding)
-- No WebView, no Electron, no Java — pure native, fast startup, low memory
+### Multi-version Roblox support
+- Global client (`com.roblox.client`)
+- Vietnam client (`com.roblox.client.vnggames`)
+- Custom package
+
+## Installation
+
+1. Download the [latest release of Chipstrap](https://github.com/TheStrongestOfTomorrow/Chipstrap/releases).
+2. Install the APK on your Android device (`adb install -r Chipstrap-release-*.apk`).
+3. Once installed, open Chipstrap and grant the notification permission.
+4. Go to **Integrations → Application strategy** and pick your injection strategy (Shizuku recommended — no root needed).
+5. Go to **FFlags**, apply a preset (or add your own).
+6. Go back to **Home → Apply & Launch**.
+
+## Requirements
+
+- Android 8.0 (API 26) or newer
+- Roblox installed (Global or VNG)
+- One of the following for FFlag injection:
+  - [Shizuku](https://shizuku.rikka.app/) running on the device (recommended, no root), or
+  - A rooted device, or
+  - A virtual-space app (Parallel Space / DualSpace) with Roblox cloned inside
+
+If none of the above are available, Chipstrap will still keep your FFlag profile locally for export.
 
 ## Build
 
-Requirements: JDK 17, Android SDK 34, Kotlin 2.1.
+Requirements: JDK 17, Android SDK 35, Kotlin 2.1.
 
 ```bash
 git clone https://github.com/TheStrongestOfTomorrow/Chipstrap.git
@@ -77,44 +91,57 @@ cd Chipstrap
 # APK: app/build/outputs/apk/debug/app-debug.apk
 ```
 
-For a release build:
+For a release build (self-signed with the debug key if no `app/release.keystore` exists):
+
 ```bash
 ./gradlew assembleRelease
+# APK: app/build/outputs/apk/release/app-release.apk
 ```
 
-## Install
-
-```bash
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-```
-
-On first launch, grant the notification permission (used by the launcher
-foreground service) and pick an injection strategy in **Integrations**.
+Every push to `main` triggers the [Release workflow](.github/workflows/release.yml) which auto-builds both debug and release APKs and creates a GitHub release with them attached.
 
 ## Setup Shizuku (recommended, no root)
 
 1. Install [Shizuku](https://shizuku.rikka.app/) from Google Play.
 2. Start Shizuku via wireless debugging (Android 11+) or ADB.
 3. In Chipstrap → Integrations → Application strategy → **Shizuku**.
-4. Done — Chipstrap will use Shizuku to write `ClientAppSettings.json` into
-   Roblox's private data directory on every launch.
+4. Done — Chipstrap will use Shizuku to write `ClientAppSettings.json` into Roblox's private data directory on every launch.
 
-## Setup root
+## F.A.Q
 
-1. Make sure your `su` binary works (`su -c id` returns `uid=0`).
-2. In Chipstrap → Integrations → Application strategy → **Root**.
+#### Q: Is this malware?
 
-## Use a preset
+A: No, it's not malware. The source code is viewable to all, so anyone can verify that it doesn't do anything harmful. If anything was detected, that's a false positive. Just make sure you're downloading it from the official GitHub repository.
 
-1. Open the **FFlags** screen from the drawer.
-2. Tap **Apply preset** under any preset you want.
-3. Go back to **Home** → **Apply & Launch**.
+#### Q: Can I get banned for using Chipstrap?
+
+A: It shouldn't. Chipstrap doesn't interact with the Roblox client process directly — it only writes a `ClientAppSettings.json` file into Roblox's data directory before launch (same mechanism Roblox's own engine supports for its engineers). However, modifying the Roblox client may violate Roblox's Terms of Service, so use at your own risk.
+
+#### Q: Why does Chipstrap need Shizuku or root?
+
+A: Roblox 2.650+ stopped honoring `ClientAppSettings.json` placed outside its private data directory. On modern Android (10+), apps can't write to other apps' private data dirs without elevated privileges. Shizuku or root is required to bypass that restriction.
+
+#### Q: Will this survive Roblox updates?
+
+A: Yes. Chipstrap resolves the live Roblox data directory on every launch (via `pm path`), so it always finds the right target even after Roblox updates.
+
+#### Q: The original Chevstrap was abandoned — what changed?
+
+A: Chevstrap's README literally read `FFLAGS DISABLED BY ROBLOX ITSELF. DISCONTINUED`. Roblox disabled external FFlag reads by tightening Android's scoped storage on the client data dir. Chipstrap works around it with a multi-strategy injector (Shizuku / Root / Virtual space / Local) and is a complete Kotlin + Jetpack Compose rewrite for native performance.
+
+#### Q: Can you add Discord Rich Presence?
+
+A: Not currently — Discord's Android SDK has known stability issues. May revisit in the future.
+
+#### Q: Why Kotlin + Jetpack Compose?
+
+A: Because the user asked for it. Native Kotlin compiles to the same JVM bytecode as Java but with less boilerplate, and Jetpack Compose is Google's modern declarative UI toolkit — both compile directly to native Android (no WebView, no React Native bridge), giving very fast startup and low memory usage.
 
 ## Project layout
 
 ```
 app/src/main/kotlin/com/chipstrap/rbx/
-├── ChipstrapApp.kt             # Application entrypoint
+├── ChipstrapApp.kt             # Application entrypoint (hardened init)
 ├── MainActivity.kt             # Compose host + navigation
 ├── core/Logger.kt              # File logger
 ├── data/
@@ -134,8 +161,7 @@ app/src/main/kotlin/com/chipstrap/rbx/
 
 ## Disclaimer
 
-Chipstrap is **not affiliated with Roblox Corporation**. Modifying the Roblox
-client may violate Roblox's Terms of Service. Use at your own risk.
+Chipstrap is **not affiliated with Roblox Corporation**. Modifying the Roblox client may violate Roblox's Terms of Service. Use at your own risk.
 
 ## Credits
 

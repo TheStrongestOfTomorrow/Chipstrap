@@ -12,7 +12,12 @@
 /captures
 .externalNativeBuild
 .cxx
-local.propertiesworklog.md
 *.apk
 app/build/
 build/
+worklog.md
+
+# Release keystore — never commit
+app/release.keystore
+*.keystore
+*.jks

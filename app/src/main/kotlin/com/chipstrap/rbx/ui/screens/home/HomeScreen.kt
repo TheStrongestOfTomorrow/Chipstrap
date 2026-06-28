@@ -55,6 +55,7 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = viewModel()) {
     val activePreset by vm.activePreset.collectAsState()
     val lastLaunch by vm.lastLaunch.collectAsState()
     val isLaunching by vm.isLaunching.collectAsState()
+    val strategyLabel by vm.strategyLabel.collectAsState()
 
     Column(
         modifier = Modifier
@@ -109,7 +110,7 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = viewModel()) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = vm.strategySummary(),
+                    text = strategyLabel,
                     style = MaterialTheme.typography.bodyMedium
                 )
                 OutlinedButton(onClick = { nav.navigate("integrations") }) {
