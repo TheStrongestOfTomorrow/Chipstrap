@@ -54,10 +54,12 @@ fun AppScaffold(navController: NavController, content: @Composable () -> Unit) {
                     selected = false,
                     icon = { Icon(item.icon, contentDescription = null) },
                     onClick = {
-                        scope.launch { drawerState.close() }
-                        navController.navigate(item.route) {
-                            launchSingleTop = true
-                            popUpTo("home")
+                        runCatching { scope.launch { drawerState.close() } }
+                        runCatching {
+                            navController.navigate(item.route) {
+                                launchSingleTop = true
+                                popUpTo("home")
+                            }
                         }
                     }
                 )

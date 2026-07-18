@@ -113,7 +113,9 @@ fun HomeScreen(nav: NavController, vm: HomeViewModel = viewModel()) {
                     text = strategyLabel,
                     style = MaterialTheme.typography.bodyMedium
                 )
-                OutlinedButton(onClick = { nav.navigate("integrations") }) {
+                OutlinedButton(onClick = {
+                    runCatching { nav.navigate("integrations") }
+                }) {
                     Text(stringResource(R.string.home_profile_card_title))
                 }
             }

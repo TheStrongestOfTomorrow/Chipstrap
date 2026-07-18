@@ -16,6 +16,27 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="29" />
 
+    <!--
+        Package visibility on Android 11+ (API 30+).
+        Even with QUERY_ALL_PACKAGES, getPackageInfo() on another app can silently
+        fail on some OEM ROMs unless we explicitly declare the packages we want
+        to see. This makes Roblox (global + VNG) and Shizuku visible to our
+        PackageManager queries regardless of the device's package-filtering rules.
+    -->
+    <queries>
+        <package android:name="com.roblox.client" />
+        <package android:name="com.roblox.client.vnggames" />
+        <package android:name="moe.shizuku.privileged.api" />
+        <!-- Allow querying any package via intent — covers users with a custom Roblox package -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
+
     <application
         android:name=".ChipstrapApp"
         android:allowBackup="true"
