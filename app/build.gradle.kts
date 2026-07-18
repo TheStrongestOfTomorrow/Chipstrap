@@ -22,14 +22,19 @@ android {
     // Release signing config: if a keystore file is present at app/release.keystore
     // (created by the CI workflow or supplied locally), sign with it; otherwise fall
     // back to the debug signing config so local `./gradlew assembleRelease` still works.
+    //
+    // Reads from env vars set by .github/workflows/release.yml:
+    //   KS_PASS     — keystore store password
+    //   KS_KEY_PASS — key password (falls back to KS_PASS if not set, mirrors keystore convention)
+    //   KS_ALIAS    — key alias in the keystore (defaults to "chipstrap")
     signingConfigs {
         create("release") {
             val ksFile = rootProject.file("app/release.keystore")
             if (ksFile.exists()) {
                 storeFile = ksFile
                 storePassword = System.getenv("KS_PASS") ?: "chipstrap-default-keystore-password"
-                keyAlias = "chipstrap"
-                keyPassword = System.getenv("KS_KEY_PASS") ?: "chipstrap-default-key-password"
+                keyAlias = System.getenv("KS_ALIAS") ?: "chipstrap"
+                keyPassword = System.getenv("KS_KEY_PASS") ?: System.getenv("KS_PASS") ?: "chipstrap-default-key-password"
             }
         }
     }

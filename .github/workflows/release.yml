@@ -32,34 +32,101 @@ jobs:
       - name: Make Gradle executable
         run: chmod +x ./gradlew
 
-      - name: Generate release keystore (self-signed)
+      # ───────────────────────────────────────────────────────────────────────
+      # Release keystore setup.
+      #
+      # Two modes:
+      #   (A) User provided CHIPSTRAP_KS_BASE64 (+ CHIPSTRAP_KS_PASS +
+      #       CHIPSTRAP_KS_KEY_PASS + CHIPSTRAP_KS_ALIAS) secrets → decode &
+      #       use that keystore.
+      #   (B) No keystore secret → generate an ephemeral self-signed keystore
+      #       with default passwords and a fixed alias "chipstrap".
+      #
+      # Both paths produce app/release.keystore and set KS_PASS, KS_KEY_PASS,
+      # KS_ALIAS as env vars for the gradle build step.
+      # ───────────────────────────────────────────────────────────────────────
+      - name: Set up release keystore
+        id: ks
         env:
-          KS_PASS: ${{ secrets.CHIPSTRAP_KS_PASS || 'chipstrap-default-keystore-password' }}
-          KS_KEY_PASS: ${{ secrets.CHIPSTRAP_KS_KEY_PASS || 'chipstrap-default-key-password' }}
+          KS_B64: ${{ secrets.CHIPSTRAP_KS_BASE64 }}
+          KS_PASS: ${{ secrets.CHIPSTRAP_KS_PASS }}
+          KS_KEY_PASS: ${{ secrets.CHIPSTRAP_KS_KEY_PASS }}
+          KS_ALIAS: ${{ secrets.CHIPSTRAP_KS_ALIAS }}
         run: |
           set -e
-          if [ -n "${{ secrets.CHIPSTRAP_KS_BASE64 }}" ]; then
-            echo "Using provided release keystore from secrets"
-          echo "${{ secrets.CHIPSTRAP_KS_BASE64 }}" | base64 -d > app/release.keystore
-          else
-            echo "Generating ephemeral self-signed release keystore"
-            keytool -genkeypair -v \
-              -keystore app/release.keystore \
-              -storetype PKCS12 \
-              -storepass:env KS_PASS \
-              -keypass:env KS_KEY_PASS \
-              -alias chipstrap \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=Chipstrap, OU=Build, O=Chipstrap, L=NA, ST=NA, C=NA"
+          KS_FILE="app/release.keystore"
+          mkdir -p app
+
+          # Mode A: user-provided keystore.
+          if [ -n "$KS_B64" ]; then
+            echo "Mode A: decoding user-provided keystore from CHIPSTRAP_KS_BASE64 secret"
+            # Strip ALL whitespace/newlines before base64-decoding (base64 from
+            # GitHub secrets UI sometimes has trailing newlines that break -d).
+            echo "$KS_B64" | tr -d ' \n\r\t' | base64 -d > "$KS_FILE"
+            echo "  Decoded keystore size: $(stat -c%s "$KS_FILE") bytes"
+
+            # Validate it's actually a keystore before continuing. If the user
+            # gave us a bad base64 or a non-keystore blob, fail loudly here
+            # instead of letting gradle throw a cryptic padding error later.
+            KS_PASS_VAL="${KS_PASS:-chipstrap-default-keystore-password}"
+            KS_KEY_PASS_VAL="${KS_KEY_PASS:-$KS_PASS_VAL}"
+            KS_ALIAS_VAL="${KS_ALIAS:-chipstrap}"
+
+            echo "  Verifying keystore with keytool -list (alias=$KS_ALIAS_VAL)…"
+            if ! keytool -list \
+                -keystore "$KS_FILE" \
+                -storepass "$KS_PASS_VAL" \
+                -alias "$KS_ALIAS_VAL" > /dev/null 2> ks_verify.err; then
+              echo "❌ Keystore verification failed. Underlying error:"
+              cat ks_verify.err
+              echo ""
+              echo "This usually means one of:"
+              echo "  - CHIPSTRAP_KS_BASE64 doesn't actually contain a PKCS12/JKS keystore"
+              echo "  - CHIPSTRAP_KS_PASS doesn't match the keystore's store password"
+              echo "  - CHIPSTRAP_KS_KEY_PASS doesn't match the key's password"
+              echo "  - CHIPSTRAP_KS_ALIAS doesn't match the alias in the keystore"
+              echo ""
+              echo "Falling back to ephemeral keystore (Mode B) so the build still ships."
+              rm -f "$KS_FILE" ks_verify.err
+            else
+              echo "  ✓ Keystore verified OK"
+              # Export final values to GITHUB_ENV for subsequent steps.
+              echo "KS_PASS=$KS_PASS_VAL" >> $GITHUB_ENV
+              echo "KS_KEY_PASS=$KS_KEY_PASS_VAL" >> $GITHUB_ENV
+              echo "KS_ALIAS=$KS_ALIAS_VAL" >> $GITHUB_ENV
+              echo "using_user_keystore=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
           fi
+
+          # Mode B: ephemeral self-signed keystore.
+          # IMPORTANT: PKCS12 keystores do NOT support different store and key
+          # passwords (keytool will silently ignore -keypass and use the store
+          # password). We must use the SAME password for both — otherwise the
+          # gradle build later will throw
+          # "Failed to read key chipstrap: Given final block not properly padded".
+          echo "Mode B: generating ephemeral self-signed keystore"
+          KS_PASS_VAL="chipstrap-default-keystore-password"
+          KS_KEY_PASS_VAL="$KS_PASS_VAL"   # MUST be identical for PKCS12
+          KS_ALIAS_VAL="chipstrap"
+          keytool -genkeypair -v \
+            -keystore "$KS_FILE" \
+            -storetype PKCS12 \
+            -storepass "$KS_PASS_VAL" \
+            -keypass "$KS_KEY_PASS_VAL" \
+            -alias "$KS_ALIAS_VAL" \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Chipstrap, OU=Build, O=Chipstrap, L=NA, ST=NA, C=NA"
+          echo "  ✓ Ephemeral keystore created at $KS_FILE ($(stat -c%s "$KS_FILE") bytes)"
+          echo "KS_PASS=$KS_PASS_VAL" >> $GITHUB_ENV
+          echo "KS_KEY_PASS=$KS_KEY_PASS_VAL" >> $GITHUB_ENV
+          echo "KS_ALIAS=$KS_ALIAS_VAL" >> $GITHUB_ENV
+          echo "using_user_keystore=false" >> $GITHUB_OUTPUT
 
       - name: Build Debug APK
         run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
 
       - name: Build Release APK
-        env:
-          KS_PASS: ${{ secrets.CHIPSTRAP_KS_PASS || 'chipstrap-default-keystore-password' }}
-          KS_KEY_PASS: ${{ secrets.CHIPSTRAP_KS_KEY_PASS || 'chipstrap-default-key-password' }}
         run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
 
       - name: Rename APKs
@@ -90,9 +157,13 @@ jobs:
             **Branch:** ${{ github.ref_name }}
             **Built at:** ${{ steps.tag.outputs.tag }}
 
+            ## Signing
+
+            ${{ steps.ks.outputs.using_user_keystore == 'true' && 'Signed with the user-provided release keystore (CHIPSTRAP_KS_BASE64).' || 'Self-signed with an ephemeral keystore generated by CI. For production distribution, add your own CHIPSTRAP_KS_BASE64 / CHIPSTRAP_KS_PASS / CHIPSTRAP_KS_KEY_PASS / CHIPSTRAP_KS_ALIAS secrets.' }}
+
             ## Downloads
 
-            - `Chipstrap-release-*.apk` — release build (self-signed if no `CHIPSTRAP_KS_BASE64` secret is set)
+            - `Chipstrap-release-*.apk` — release build
             - `Chipstrap-debug-*.apk` — debug build (with `.debug` applicationId suffix)
 
             ## Install
