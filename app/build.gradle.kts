@@ -13,8 +13,8 @@ android {
         applicationId = "com.chipstrap.rbx"
         minSdk = 26
         targetSdk = 34
-        versionCode = 5
-        versionName = "1.0.4"
+        versionCode = 6
+        versionName = "1.0.5"
         vectorDrawables { useSupportLibrary = true }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -75,6 +75,17 @@ android {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
     }
     testOptions { unitTests { isReturnDefaultValues = true } }
+
+    // D8/R8 dexer heap. The dexer runs in a worker JVM that defaults to a
+    // small heap (~512m), which OOMs when merging external dex archives
+    // (Shizuku SDK + AndroidX + Compose + Kotlin coroutines pull in a LOT of
+    // classes). Bumping this to 2048m fixes the
+    // "java.lang.OutOfMemoryError: GC overhead limit exceeded" error we saw
+    // in CI on mergeExtDexDebug.
+    @Suppress("DEPRECATION")
+    dexOptions {
+        javaMaxHeapSize = "2048m"
+    }
 }
 
 dependencies {
