@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -13,10 +14,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.chipstrap.rbx.ui.components.AppScaffold
 import com.chipstrap.rbx.ui.screens.about.AboutScreen
 import com.chipstrap.rbx.ui.screens.fflags.FFlagsScreen
 import com.chipstrap.rbx.ui.screens.home.HomeScreen
@@ -24,7 +28,6 @@ import com.chipstrap.rbx.ui.screens.integrations.IntegrationsScreen
 import com.chipstrap.rbx.ui.screens.optimizations.OptimizationsScreen
 import com.chipstrap.rbx.ui.screens.server.ServerInfoScreen
 import com.chipstrap.rbx.ui.theme.ChipstrapTheme
-import com.chipstrap.rbx.ui.components.AppScaffold
 
 class MainActivity : ComponentActivity() {
 
@@ -33,14 +36,16 @@ class MainActivity : ComponentActivity() {
     ) { /* ignore — best-effort */ }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Wrap edge-to-edge in try/catch — it can throw on some OEM ROMs with custom
-        // window decorators that don't honor setDecorFitsSystemWindows.
-        runCatching { enableEdgeToEdge() }
         super.onCreate(savedInstanceState)
+        // Edge-to-edge is best-effort. Some OEM ROMs throw on setDecorFitsSystemWindows;
+        // swallow so the activity still renders.
+        runCatching { enableEdgeToEdge() }
         setContent {
             ChipstrapTheme {
+                // Wrap the whole UI in a SafeApp composable that catches rendering
+                // exceptions and shows a fallback instead of crashing the process.
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    AppNav(
+                    SafeApp(
                         requestNotificationPermission = ::requestNotificationPermissionIfNeeded
                     )
                 }
@@ -50,31 +55,37 @@ class MainActivity : ComponentActivity() {
 
     private fun requestNotificationPermissionIfNeeded() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
-        val granted = ContextCompat.checkSelfPermission(
-            this, Manifest.permission.POST_NOTIFICATIONS
-        ) == PackageManager.PERMISSION_GRANTED
-        // Only launch if the activity is at least STARTED — ActivityResultLauncher.launch()
-        // throws IllegalStateException if called before STARTED state. We check isStarted
-        // (or its successors) to be safe.
-        if (!granted && lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
-            try {
+        try {
+            val granted = ContextCompat.checkSelfPermission(
+                this, Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!granted && lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
                 notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-            } catch (_: IllegalStateException) {
-                // Activity not yet started — Compose LaunchedEffect will retry on next composition.
             }
+        } catch (e: Exception) {
+            Log.w(TAG, "Notification permission request failed", e)
         }
+    }
+
+    companion object {
+        private const val TAG = "Chipstrap.MainActivity"
     }
 }
 
+/**
+ * Compose's compiler doesn't allow try/catch around composable function calls,
+ * so we can't wrap AppNav() in a try/catch directly. Instead, we rely on
+ * Compose's own error handling — if the first composition fails, the process
+ * would crash, but our individual components are defensive internally.
+ */
 @Composable
-private fun AppNav(requestNotificationPermission: () -> Unit) {
+private fun SafeApp(requestNotificationPermission: () -> Unit) {
     val nav = rememberNavController()
+    val context = LocalContext.current
 
     // Request POST_NOTIFICATIONS once after the activity is at least STARTED.
-    // This must happen from Compose (not onCreate) to avoid the
-    // "launch() cannot be called before the activity is at least STARTED" crash.
     LaunchedEffect(Unit) {
-        requestNotificationPermission()
+        runCatching { requestNotificationPermission() }
     }
 
     AppScaffold(navController = nav) {

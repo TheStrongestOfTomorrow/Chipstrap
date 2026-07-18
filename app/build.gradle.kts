@@ -13,8 +13,8 @@ android {
         applicationId = "com.chipstrap.rbx"
         minSdk = 26
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.0.2"
         vectorDrawables { useSupportLibrary = true }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -41,8 +41,11 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // R8 minification is OFF for now — it was causing mysterious launch
+            // crashes on real devices despite the app working fine in debug.
+            // We'll re-enable it after we've added comprehensive keep rules.
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // Use the release signing config if its keystore exists, otherwise fall back to debug
             // so a plain `./gradlew assembleRelease` on a developer machine still produces an

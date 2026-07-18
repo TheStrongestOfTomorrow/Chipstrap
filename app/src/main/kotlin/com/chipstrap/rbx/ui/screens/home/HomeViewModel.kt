@@ -2,11 +2,11 @@ package com.chipstrap.rbx.ui.screens.home
 
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chipstrap.rbx.data.SettingsStore
 import com.chipstrap.rbx.fflags.repository.FFlagRepository
-import com.chipstrap.rbx.fflags.strategies.StrategyResolver
 import com.chipstrap.rbx.roblox.RobloxPackages
 import com.chipstrap.rbx.service.LauncherForegroundService
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,37 +42,57 @@ class HomeViewModel : ViewModel() {
 
     fun refresh(context: Context) {
         viewModelScope.launch {
-            val pkg = RobloxPackages.resolvePreferred(context)
-            _isInstalled.value = RobloxPackages.isInstalled(context, pkg)
-            _robloxVersion.value = RobloxPackages.versionName(context, pkg)
-            runCatching { fflags.load() }
-            _fflagsCount.value = fflags.count()
-            _activePreset.value = SettingsStore.lastPreset.first()
-            _lastLaunch.value = SettingsStore.lastLaunchTs.first()
-            val id = SettingsStore.injectionStrategy.first()
-            _strategyLabel.value = when (id) {
-                "shizuku" -> "Shizuku"
-                "root" -> "Root"
-                "virtual" -> "Virtual space"
-                else -> "Local profile"
-            }
+            // Each step is in its own runCatching so a failure in one doesn't
+            // abort the others — and the UI never sees an exception.
+            runCatching {
+                val pkg = RobloxPackages.resolvePreferred(context)
+                _isInstalled.value = RobloxPackages.isInstalled(context, pkg)
+                _robloxVersion.value = RobloxPackages.versionName(context, pkg)
+            }.onFailure { Log.w(TAG, "resolvePreferred failed", it) }
+
+            runCatching {
+                fflags.load()
+                _fflagsCount.value = fflags.count()
+            }.onFailure { Log.w(TAG, "fflags.load failed", it) }
+
+            runCatching {
+                _activePreset.value = SettingsStore.lastPreset.first()
+            }.onFailure { Log.w(TAG, "lastPreset.first failed", it) }
+
+            runCatching {
+                _lastLaunch.value = SettingsStore.lastLaunchTs.first()
+            }.onFailure { Log.w(TAG, "lastLaunchTs.first failed", it) }
+
+            runCatching {
+                val id = SettingsStore.injectionStrategy.first()
+                _strategyLabel.value = when (id) {
+                    "shizuku" -> "Shizuku"
+                    "root" -> "Root"
+                    "virtual" -> "Virtual space"
+                    else -> "Local profile"
+                }
+            }.onFailure { Log.w(TAG, "injectionStrategy.first failed", it) }
         }
     }
 
     fun launch(context: Context) {
         if (_isLaunching.value) return
         _isLaunching.value = true
-        val intent = Intent(context, LauncherForegroundService::class.java).apply {
-            action = LauncherForegroundService.ACTION_LAUNCH
-        }
         runCatching {
+            val intent = Intent(context, LauncherForegroundService::class.java).apply {
+                action = LauncherForegroundService.ACTION_LAUNCH
+            }
             androidx.core.content.ContextCompat.startForegroundService(context, intent)
-        }
+        }.onFailure { Log.e(TAG, "startForegroundService failed", it) }
         // Optimistic — the real launch happens in the service. Reset the spinner after a bit.
         viewModelScope.launch {
             kotlinx.coroutines.delay(2500)
             _isLaunching.value = false
             refresh(context)
         }
+    }
+
+    companion object {
+        private const val TAG = "Chipstrap.HomeVM"
     }
 }
