@@ -20,6 +20,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.chipstrap.rbx.shizuku.ShizukuManager
 import com.chipstrap.rbx.ui.components.AppScaffold
 import com.chipstrap.rbx.ui.screens.about.AboutScreen
 import com.chipstrap.rbx.ui.screens.fflags.FFlagsScreen
@@ -35,22 +36,45 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()
     ) { /* ignore — best-effort */ }
 
+    private var shizukuListeners: ShizukuManager.ShizukuListeners? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Edge-to-edge is best-effort. Some OEM ROMs throw on setDecorFitsSystemWindows;
         // swallow so the activity still renders.
         runCatching { enableEdgeToEdge() }
+
+        // Register Shizuku binder + permission listeners. The onGranted callback
+        // fires when Shizuku is running AND the user has granted our app the
+        // Shizuku permission. If permission isn't granted yet, we request it.
+        runCatching {
+            shizukuListeners = ShizukuManager.init(
+                onGranted = {
+                    Log.i(TAG, "Shizuku permission granted — injection strategy ready")
+                },
+                onLost = {
+                    Log.i(TAG, "Shizuku binder lost — injection strategy unavailable")
+                }
+            )
+        }.onFailure { Log.w(TAG, "Shizuku init failed (Shizuku not installed?)", it) }
+
         setContent {
             ChipstrapTheme {
-                // Wrap the whole UI in a SafeApp composable that catches rendering
-                // exceptions and shows a fallback instead of crashing the process.
                 Surface(modifier = Modifier.fillMaxSize()) {
                     SafeApp(
-                        requestNotificationPermission = ::requestNotificationPermissionIfNeeded
+                        requestNotificationPermission = ::requestNotificationPermissionIfNeeded,
+                        requestShizukuPermission = ::requestShizukuPermissionIfNeeded
                     )
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Clean up Shizuku listeners to avoid leaks
+        shizukuListeners?.let { runCatching { ShizukuManager.cleanup(it) } }
+        shizukuListeners = null
     }
 
     private fun requestNotificationPermissionIfNeeded() {
@@ -67,6 +91,19 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Request Shizuku permission if the binder is alive but we don't have
+     * permission yet. Safe to call multiple times.
+     */
+    private fun requestShizukuPermissionIfNeeded() {
+        runCatching {
+            if (ShizukuManager.isBinderAlive() && !ShizukuManager.hasPermission()) {
+                Log.i(TAG, "Requesting Shizuku permission…")
+                ShizukuManager.requestPermission()
+            }
+        }.onFailure { Log.w(TAG, "Shizuku permission request failed", it) }
+    }
+
     companion object {
         private const val TAG = "Chipstrap.MainActivity"
     }
@@ -79,13 +116,18 @@ class MainActivity : ComponentActivity() {
  * would crash, but our individual components are defensive internally.
  */
 @Composable
-private fun SafeApp(requestNotificationPermission: () -> Unit) {
+private fun SafeApp(
+    requestNotificationPermission: () -> Unit,
+    requestShizukuPermission: () -> Unit
+) {
     val nav = rememberNavController()
-    val context = LocalContext.current
 
     // Request POST_NOTIFICATIONS once after the activity is at least STARTED.
     LaunchedEffect(Unit) {
         runCatching { requestNotificationPermission() }
+        // Also try Shizuku permission on startup — if Shizuku is running but
+        // not yet granted, this triggers the permission dialog.
+        runCatching { requestShizukuPermission() }
     }
 
     AppScaffold(navController = nav) {

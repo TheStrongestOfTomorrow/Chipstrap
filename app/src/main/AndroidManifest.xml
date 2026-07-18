@@ -67,6 +67,19 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
+        <!--
+            Shizuku provider — lets Shizuku send its privileged binder to our app.
+            Required for Shizuku.pingBinder(), Shizuku.checkSelfPermission(), and
+            Shizuku.requestPermission() to work.
+        -->
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:multiprocess="false"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"

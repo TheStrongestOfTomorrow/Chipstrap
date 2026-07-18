@@ -8,6 +8,7 @@ import android.util.Log
 import com.chipstrap.rbx.core.Logger
 import com.chipstrap.rbx.data.AppPaths
 import com.chipstrap.rbx.data.SettingsStore
+import com.chipstrap.rbx.shizuku.ShizukuManager
 
 /**
  * Application entrypoint. Sets up paths, logger, notification channels.
@@ -45,6 +46,12 @@ class ChipstrapApp : Application() {
         // Step 4: notification channels (only on O+)
         runCatching { createNotificationChannels() }
             .onFailure { Log.e(TAG, "createNotificationChannels failed", it) }
+
+        // Step 5: init Shizuku context (needed for permission checks before
+        // any activity is alive). The actual binder listeners are registered
+        // from MainActivity so we can show UI when permission is granted.
+        runCatching { ShizukuManager.initContext(this) }
+            .onFailure { Log.e(TAG, "ShizukuManager.initContext failed", it) }
 
         Log.i(TAG, "Chipstrap ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) onCreate complete")
     }

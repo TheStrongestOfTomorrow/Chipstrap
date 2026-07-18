@@ -59,3 +59,11 @@
 # ─────────────────────────────────────────────────────────────────────
 -keep class kotlinx.coroutines.** { *; }
 -dontwarn kotlinx.coroutines.**
+
+# ─────────────────────────────────────────────────────────────────────
+# Shizuku API — keep the binder + provider classes
+# ─────────────────────────────────────────────────────────────────────
+-keep class rikka.shizuku.** { *; }
+-keep class moe.shizuku.** { *; }
+-dontwarn rikka.shizuku.**
+-dontwarn moe.shizuku.**

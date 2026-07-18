@@ -34,6 +34,16 @@
     <string name="strategy_local">Local profile (no-inject)</string>
     <string name="strategy_local_desc">Cannot inject FFlags into the official Roblox app. Chipstrap will keep a local profile that can be exported/imported, and will only apply prefs that Roblox still honors (e.g. preferred app, haptics).</string>
 
+    <!-- Shizuku integration -->
+    <string name="shizuku_status_running">Shizuku is running and permission granted</string>
+    <string name="shizuku_status_not_running">Shizuku is not running. Please start it.</string>
+    <string name="shizuku_status_no_permission">Shizuku is running but permission not granted.</string>
+    <string name="shizuku_status_not_installed">Shizuku is not installed.</string>
+    <string name="shizuku_request_permission">Request Shizuku permission</string>
+    <string name="shizuku_install">Install Shizuku</string>
+    <string name="shizuku_install_url">https://shizuku.rikka.app/</string>
+    <string name="shizuku_permission_rationale">Chipstrap needs Shizuku permission to write ClientAppSettings.json into Roblox\'s private data directory. Without it, the FFlag injection strategy won\'t work.</string>
+
     <!-- FFlags -->
     <string name="fflags_title">Fast Flags (FFlags)</string>
     <string name="fflags_subtitle">Roblox disabled external FFlag reads on the Android client. Chipstrap uses a multi-strategy injector to keep them working.</string>

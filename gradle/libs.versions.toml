@@ -18,6 +18,8 @@ junitExt = "1.2.1"
 espresso = "3.6.1"
 material = "1.12.0"
 appcompat = "1.7.0"
+shizuku = "13.1.5"
+hiddenApiRefine = "4.4.0"
 
 [libraries]
 core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -42,6 +44,11 @@ work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version
 datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+shizuku-api = { group = "dev.rikka.shizuku", name = "api", version.ref = "shizuku" }
+shizuku-provider = { group = "dev.rikka.shizuku", name = "provider", version.ref = "shizuku" }
+shizuku-aidl = { group = "dev.rikka.shizuku", name = "aidl", version.ref = "shizuku" }
+shizuku-shared = { group = "dev.rikka.shizuku", name = "shared", version.ref = "shizuku" }
+hiddenapirefine = { group = "dev.rikka.hidden", name = "hidden-api-compat", version.ref = "hiddenApiRefine" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitExt" }
 espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso" }

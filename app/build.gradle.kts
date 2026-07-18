@@ -13,8 +13,8 @@ android {
         applicationId = "com.chipstrap.rbx"
         minSdk = 26
         targetSdk = 34
-        versionCode = 4
-        versionName = "1.0.3"
+        versionCode = 5
+        versionName = "1.0.4"
         vectorDrawables { useSupportLibrary = true }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -102,6 +102,13 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.work.runtime.ktx)
     implementation(libs.datastore.preferences)
+
+    // Shizuku — lets us write ClientAppSettings.json into Roblox's private
+    // /data/data directory without root, using the privileged binder.
+    implementation(libs.shizuku.api)
+    implementation(libs.shizuku.provider)
+    implementation(libs.shizuku.aidl)
+    implementation(libs.shizuku.shared)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

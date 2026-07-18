@@ -1,77 +1,97 @@
 package com.chipstrap.rbx.fflags.strategies
 
 import android.content.Context
-import android.content.pm.PackageManager
 import com.chipstrap.rbx.core.Logger
 import com.chipstrap.rbx.data.AppPaths
-import java.io.File
+import com.chipstrap.rbx.shizuku.ShizukuManager
 
 /**
  * Shizuku-based injection.
  *
- * Shizuku exposes a privileged binder that lets regular apps run shell-level
- * commands (write to /sdcard, run pm/dumpsys, etc.) without root, as long as
- * Shizuku is running on the device and the user has granted permission.
+ * Uses the official Shizuku API (dev.rikka.shizuku:api) to run a privileged
+ * shell command that copies ClientAppSettings.json from our local
+ * Modifications dir into Roblox's private /data/data/.../files/ClientSettings/
+ * directory — which Android's scoped storage would otherwise prevent us from
+ * touching on Android 10+.
  *
- * To avoid pulling in the heavy Shizuku SDK at build time, we shell out to
- * the `rish` interface (Shizuku's remote shell binary) when present, OR we
- * fall through to a backup approach: writing into a "shared" Roblox data dir
- * created by the user via Shizuku's manual grant.
+ * Requirements:
+ *   - Shizuku manager app installed (com.roblox.client… wait, moe.shizuku.privileged.api)
+ *   - Shizuku service started (via wireless debugging or ADB or root)
+ *   - User has granted our app the Shizuku permission (managed by ShizukuManager)
  *
- * On a clean install, this strategy reports `isAvailable = false` until the
- * user has set up Shizuku + granted the binder permission. The UI explains
- * this to the user.
+ * On a clean install, this strategy reports isAvailable = false until the user
+ * has set up Shizuku + granted permission. The UI walks them through it.
  */
 object ShizukuInjectionStrategy : InjectionStrategy {
 
     override val id: String = "shizuku"
 
-    /** Heuristic —probe Shizuku's binder via the package presence. */
+    /**
+     * True only when we can actually use Shizuku right now — binder is alive
+     * AND the user has granted our app permission.
+     */
     override suspend fun isAvailable(context: Context): Boolean {
-        val pm = context.packageManager
         return try {
-            // Shizuku manager app
-            pm.getPackageInfo("moe.shizuku.privileged.api", 0)
-            // Best-effort check that the binder is actually running
-            val p = Runtime.getRuntime().exec(arrayOf("sh", "-c", "command -v rish"))
-            p.waitFor() == 0
-        } catch (e: PackageManager.NameNotFoundException) {
-            false
-        } catch (e: Exception) {
+            ShizukuManager.isReady()
+        } catch (e: Throwable) {
+            Logger.writeException("ShizukuInjection::isAvailable", e)
             false
         }
     }
 
+    /**
+     * Copy ClientAppSettings.json into Roblox's data dir using a Shizuku
+     * privileged shell command. We:
+     *   1. Resolve the live Roblox data dir via `pm path` (survives Roblox updates)
+     *   2. mkdir -p the ClientSettings dir (under Roblox's files/)
+     *   3. cat our local JSON into the target path
+     *   4. chown to Roblox's uid:gid so Roblox can read it
+     *   5. chmod 660 so Roblox's engine can read but not world-readable
+     */
     override suspend fun apply(context: Context, robloxPackage: String): Result<Unit> {
         val src = AppPaths.clientAppSettingsFile
         if (!src.exists()) {
             return Result.failure(IllegalStateException("No ClientAppSettings.json to inject"))
         }
+        if (!ShizukuManager.isReady()) {
+            return Result.failure(IllegalStateException("Shizuku not ready — start Shizuku and grant permission"))
+        }
         return try {
-            val targetDir = "/data/data/$robloxPackage/files/ClientSettings"
+            val srcPath = src.absolutePath
+            val dataDir = "/data/data/$robloxPackage"
+            val targetDir = "$dataDir/files/ClientSettings"
             val targetFile = "$targetDir/ClientAppSettings.json"
+
+            // Single shell script that does everything atomically.
+            // Uses `stat` to resolve Roblox's uid/gid so we can chown the file
+            // to match — Roblox's engine won't read a file owned by another uid.
+            //
+            // Note: ${'$'}OWNER is the Kotlin way to emit a literal $OWNER in a
+            // multiline string — without it, Kotlin would try to interpolate
+            // OWNER as a Kotlin variable.
             val script = """
-                mkdir -p $targetDir
-                cat ${src.absolutePath} > $targetFile
-                chmod 660 $targetFile
-                echo OK
+                set -e
+                mkdir -p "$targetDir"
+                cat "$srcPath" > "$targetFile"
+                OWNER=${'$'}(stat -c '%u:%g' "$dataDir")
+                chown "${'$'}OWNER" "$targetFile" "$targetDir"
+                chmod 660 "$targetFile"
+                chmod 770 "$targetDir"
+                echo "INJECTED_OK"
             """.trimIndent()
-            // Try rish first; if not on PATH, fall back to a manual copy via
-            // content provider / shell — both will fail gracefully if Shizuku
-            // isn't running, and the caller will then try the next strategy.
-            val pb = ProcessBuilder("rish").redirectErrorStream(true)
-            pb.environment()["TERM"] = "xterm-256color"
-            val p = pb.start()
-            p.outputStream.write(script.toByteArray())
-            p.outputStream.close()
-            val out = p.inputStream.bufferedReader().readText()
-            val code = p.waitFor()
-            if (code == 0 && out.contains("OK")) {
-                Logger.writeLine("ShizukuInjection::apply", "Injected $targetFile via rish")
+
+            val result = ShizukuManager.runShellCommand(script, timeoutMs = 15_000L)
+                ?: return Result.failure(IllegalStateException("Shizuku not ready"))
+
+            if (result.success && result.stdout.contains("INJECTED_OK")) {
+                Logger.writeLine("ShizukuInjection::apply", "Injected $targetFile via Shizuku binder")
                 Result.success(Unit)
             } else {
-                Logger.writeLine("ShizukuInjection::apply", "rish failed code=$code out=$out")
-                Result.failure(RuntimeException("rish exit $code: $out"))
+                Logger.writeLine(
+                    "ShizukuInjection::apply",
+                    "Shizuku command failed: exit=${result.exitCode} stdout=${result.stdout} stderr=${result.stderr}"
+                )
+                Result.failure(RuntimeException("Shizuku exit ${result.exitCode}: ${result.stderr.ifBlank { result.stdout }}"))
             }
         } catch (e: Exception) {
             Logger.writeException("ShizukuInjection::apply", e)
